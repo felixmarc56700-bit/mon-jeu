@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snake</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #1b1f23; color: #e6edf3; font-family: system-ui, sans-serif; }
+  canvas { background: #0d1117; border: 2px solid #30363d; border-radius: 8px; max-width: 95vw; }
+  .scores { display: flex; gap: 24px; font-size: 18px; }
+  button { font-size: 16px; padding: 8px 20px; border-radius: 8px; border: 1px solid #30363d; background: #238636; color: #fff; cursor: pointer; }
+  p { margin: 0; color: #8b949e; font-size: 14px; }
+</style>
+</head>
+<body>
+  <h1 style="margin:0">Snake</h1>
+  <div class="scores">
+    <span>Score : <strong id="score">0</strong></span>
+    <span>Record : <strong id="best">0</strong></span>
+  </div>
+  <canvas id="game" width="480" height="480"></canvas>
+  <button id="restart">Rejouer</button>
+  <p>Flèches ou ZQSD / WASD pour bouger. Espace pour relancer.</p>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const CELL = 24;
+const COLS = canvas.width / CELL;
+const ROWS = canvas.height / CELL;
+
+const scoreEl = document.getElementById("score");
+const bestEl = document.getElementById("best");
+
+let snake, dir, nextDir, food, score, speed, timer, alive;
+let best = 0;
+try { best = Number(localStorage.getItem("snake-best")) || 0; } catch (e) {}
+bestEl.textContent = best;
+
+function randomFood() {
+  while (true) {
+    const f = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
+    if (!snake.some(s => s.x === f.x && s.y === f.y)) return f;
+  }
+}
+
+function start() {
+  snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+  dir = { x: 1, y: 0 };
+  nextDir = dir;
+  score = 0;
+  speed = 130;
+  alive = true;
+  food = randomFood();
+  scoreEl.textContent = score;
+  clearTimeout(timer);
+  tick();
+}
+
+function tick() {
+  dir = nextDir;
+  const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+  const hitWall = head.x < 0 || head.y < 0 || head.x >= COLS || head.y >= ROWS;
+  const hitSelf = snake.some(s => s.x === head.x && s.y === head.y);
+  if (hitWall || hitSelf) {
+    alive = false;
+    if (score > best) {
+      best = score;
+      bestEl.textContent = best;
+      try { localStorage.setItem("snake-best", best); } catch (e) {}
+    }
+    draw();
+    return;
+  }
+
+  snake.unshift(head);
+  if (head.x === food.x && head.y === food.y) {
+    score++;
+    scoreEl.textContent = score;
+    speed = Math.max(60, speed - 3);
+    food = randomFood();
+  } else {
+    snake.pop();
+  }
+
+  draw();
+  timer = setTimeout(tick, speed);
+}
+
+function draw() {
+  ctx.fillStyle = "#0d1117";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#f85149";
+  ctx.beginPath();
+  ctx.arc(food.x * CELL + CELL / 2, food.y * CELL + CELL / 2, CELL / 2 - 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  snake.forEach((s, i) => {
+    ctx.fillStyle = i === 0 ? "#56d364" : "#2ea043";
+    ctx.fillRect(s.x * CELL + 1, s.y * CELL + 1, CELL - 2, CELL - 2);
+  });
+
+  if (!alive) {
+    ctx.fillStyle = "rgba(0,0,0,0.65)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+    ctx.font = "32px system-ui, sans-serif";
+    ctx.fillText("Perdu !", canvas.width / 2, canvas.height / 2 - 10);
+    ctx.font = "18px system-ui, sans-serif";
+    ctx.fillText("Score : " + score + " - Espace pour rejouer", canvas.width / 2, canvas.height / 2 + 24);
+  }
+}
+
+const KEYS = {
+  ArrowUp: { x: 0, y: -1 }, w: { x: 0, y: -1 }, z: { x: 0, y: -1 },
+  ArrowDown: { x: 0, y: 1 }, s: { x: 0, y: 1 },
+  ArrowLeft: { x: -1, y: 0 }, a: { x: -1, y: 0 }, q: { x: -1, y: 0 },
+  ArrowRight: { x: 1, y: 0 }, d: { x: 1, y: 0 }
+};
+
+document.addEventListener("keydown", e => {
+  if (e.key === " ") { e.preventDefault(); if (!alive) start(); return; }
+  const k = KEYS[e.key] || KEYS[e.key.toLowerCase()];
+  if (!k) return;
+  e.preventDefault();
+  if (k.x === -dir.x && k.y === -dir.y) return;
+  nextDir = k;
+});
+
+document.getElementById("restart").addEventListener("click", start);
+
+start();
+</script>
+</body>
+</html>
